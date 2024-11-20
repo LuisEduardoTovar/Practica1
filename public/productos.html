@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Inventario</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f5f5f5;
+            margin: 0;
+            padding: 0;
+        }
+        header {
+            background-color: #007bff;
+            color: white;
+            padding: 15px 0;
+            text-align: center;
+            position: relative; /* Cambiado para poder posicionar el botón */
+        }
+        h2 {
+            color: #333;
+        }
+        .container {
+            width: 90%;
+            margin: auto;
+            overflow: hidden;
+        }
+        .module {
+            background: #fff;
+            margin: 20px 0;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group input {
+            width: calc(100% - 20px);
+            padding: 10px;
+            margin: 5px 0;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            cursor: pointer;
+            border-radius: 5px;
+            transition: background-color 0.3s ease;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .logout-button {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background-color: #dc3545;
+        }
+        .logout-button:hover {
+            background-color: #c82333;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background-color: #007bff;
+            color: white;
+        }
+        td button {
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+        td button:hover {
+            background-color: #c82333;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Sistema de Inventario</h1>
+        <button class="logout-button" onclick="cerrarSesion()">Cerrar Sesión</button>
+    </header>
+    <div class="container">
+        <!-- Módulo de Consultas -->
+        <div class="module">
+            <h2>Consultas de Productos</h2>
+            <button onclick="cargarProductos()">Actualizar Lista</button>
+            <div id="productos">
+                <table id="tablaProductos">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Descripción</th>
+                            <th>Precio</th>
+                            <th>Cantidad</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Módulo de Altas -->
+        <div class="module">
+            <h2>Alta de Producto</h2>
+            <form id="formAlta">
+                <div class="form-group">
+                    <input type="text" id="idProducto" placeholder="ID del producto" required>
+                </div>
+                <div class="form-group">
+                    <input type="text" id="descripcion" placeholder="Descripción" required>
+                </div>
+                <div class="form-group">
+                    <input type="number" id="precio" placeholder="Precio" required>
+                </div>
+                <div class="form-group">
+                    <input type="number" id="cantidad" placeholder="Cantidad" required>
+                </div>
+                <button type="submit">Agregar Producto</button>
+            </form>
+            <p id="mensajeAlta"></p>
+        </div>
+
+        <!-- Módulo de Bajas -->
+        <div class="module">
+            <h2>Baja de Producto</h2>
+            <div class="form-group">
+                <input type="text" id="idEliminar" placeholder="ID del producto a eliminar">
+            </div>
+            <button onclick="eliminarProductoPorID()">Eliminar Producto</button>
+            <p id="mensajeBaja"></p>
+        </div>
+    </div>
+
+    <script>
+        // Función para cargar los productos
+        async function cargarProductos() {
+            const response = await fetch('/productos');
+            const data = await response.json();
+            const tablaProductos = document.querySelector("#tablaProductos tbody");
+            
+            tablaProductos.innerHTML = ''; // Limpiar la tabla antes de agregar nuevos productos
+
+            if (response.ok) {
+                if (Object.keys(data).length === 0) {
+                    tablaProductos.insertAdjacentHTML('beforeend', '<tr><td colspan="5">No hay productos disponibles</td></tr>');
+                } else {
+                    // Insertar los productos en la tabla
+                    for (const id in data) {
+                        const producto = data[id];
+                        const row = `<tr>
+                            <td>${id}</td>
+                            <td>${producto.descripcion}</td>
+                            <td>$${producto.precio}</td>
+                            <td>${producto.cantidad}</td>
+                            <td><button onclick="eliminarProducto('${id}')">Eliminar</button></td>
+                        </tr>`;
+                        tablaProductos.insertAdjacentHTML('beforeend', row);
+                    }
+                }
+            } else {
+                alert("Error al cargar los productos");
+            }
+        }
+
+        // Función para cerrar sesión
+        function cerrarSesion() {
+            window.location.href = 'login.html';
+        }
+
+        // Función para agregar un nuevo producto
+        document.getElementById('formAlta').addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const id = document.getElementById('idProducto').value;
+            const descripcion = document.getElementById('descripcion').value;
+            const precio = parseFloat(document.getElementById('precio').value);
+            const cantidad = parseInt(document.getElementById('cantidad').value);
+    
+            const producto = { id, descripcion, precio, cantidad };
+    
+            const response = await fetch('/productos', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(producto)
+            });
+    
+            const result = await response.text();
+            document.getElementById('mensajeAlta').innerText = result;
+            document.getElementById('formAlta').reset();
+            cargarProductos(); // Actualiza la lista de productos
+        });
+
+        // Función para eliminar un producto por el ID ingresado manualmente
+        async function eliminarProductoPorID() {
+            const id = document.getElementById('idEliminar').value;
+            await eliminarProducto(id);
+        }
+
+        // Función para eliminar un producto por su ID
+        async function eliminarProducto(id) {
+            const response = await fetch(`/productos/${id}`, {
+                method: 'DELETE'
+            });
+
+            const result = await response.text();
+            document.getElementById('mensajeBaja').innerText = result;
+
+            if (response.ok) {
+                console.log(`Producto con ID ${id} eliminado.`);
+            } else {
+                console.error(`Error al eliminar el producto con ID ${id}: ${result}`);
+            }
+
+            // Recargar la lista de productos
+            cargarProductos(); 
+        }
+
+        // Cargar productos cuando la página se carga
+        window.onload = cargarProductos;
+    </script>
+</body>
+</html>

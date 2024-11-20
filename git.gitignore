@@ -1,0 +1,7 @@
+# Node.js
+node_modules/
+.env
+
+# Firebase
+firebase-debug.log
+firebase.json
