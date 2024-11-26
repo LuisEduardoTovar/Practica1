@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Gestión de Google Drive</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f0f2f5;
+      margin: 0;
+      padding: 20px;
+    }
+    h1 {
+      color: #007BFF;
+      text-align: center;
+    }
+    a, button {
+      display: inline-block;
+      margin: 10px;
+      padding: 10px 20px;
+      background-color: #007BFF;
+      color: white;
+      border: none;
+      text-decoration: none;
+      font-size: 16px;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+    a:hover, button:hover {
+      background-color: #007BFF;
+    }
+    #file-list {
+      margin-top: 20px;
+    }
+    ul {
+      list-style-type: none;
+      padding: 0;
+    }
+    li {
+      background-color: white;
+      margin: 5px;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+    }
+    li strong {
+      flex-grow: 1;
+      margin-left: 10px;
+    }
+    li button {
+      margin-left: 10px;
+      background-color: #f44336;
+    }
+    li button:hover {
+      background-color: #e53935;
+    }
+    form {
+      margin-top: 20px;
+      background-color: white;
+      padding: 20px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+    }
+    input[type="text"], input[type="file"] {
+      width: calc(100% - 22px);
+      padding: 10px;
+      margin: 10px 0;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+    button[type="submit"] {
+      width: 100%;
+      background-color: #007BFF;
+    }
+    button[type="submit"]:hover {
+      background-color: #007BFF;
+    }
+  </style>
+</head>
+
+<body>
+
+<h1>Google Drive API Integration</h1>
+<a href="/auth">Conectar con Google Drive</a>
+<button id="list-files-btn">Listar Archivos de Google Drive</button>
+<div id="file-list"></div>
+
+<script>
+  // Función para listar archivos
+  document.getElementById('list-files-btn').addEventListener('click', async () => {
+    const response = await fetch('/list-files');
+    const files = await response.json();
+
+    const fileListDiv = document.getElementById('file-list');
+    fileListDiv.innerHTML = ''; // Limpia la lista anterior
+
+    if (files.length === 0) {
+      fileListDiv.innerHTML = '<p>No se encontraron archivos.</p>';
+      return;
+    }
+
+    let output = '<ul>';
+    files.forEach(file => {
+      const isFolder = file.mimeType === 'application/vnd.google-apps.folder';
+      output += `
+        <li style="margin: 5px;">
+          ${isFolder ? '📁' : '📄'} 
+          <strong>${file.name}</strong> 
+          ${isFolder ? '<button onclick="openFolder(\'' + file.id + '\')">Abrir</button>' : ''}
+          ${!isFolder ? '<button onclick="downloadFile(\'' + file.id + '\', \'' + file.name + '\')">Descargar</button>' : ''}
+          <button onclick="deleteFile('${file.id}')">Eliminar</button>
+        </li>`;
+    });
+    output += '</ul>';
+
+    fileListDiv.innerHTML = output;
+  });
+
+  // Función para eliminar archivos
+  async function deleteFile(fileId) {
+    if (!confirm('¿Estás seguro de que deseas eliminar este archivo?')) return;
+
+    const response = await fetch(`/delete-file/${fileId}`, { method: 'DELETE' });
+    const result = await response.text();
+
+    alert(result);
+    document.getElementById('list-files-btn').click(); // Recarga la lista
+  }
+
+  // Función para descargar archivos
+  function downloadFile(fileId, fileName) {
+    window.location.href = `/download/${fileId}/${encodeURIComponent(fileName)}`;
+  }
+
+  // Función para abrir carpetas
+  async function openFolder(folderId) {
+    const response = await fetch(`/list-folder/${folderId}`);
+    const files = await response.json();
+
+    const fileListDiv = document.getElementById('file-list');
+    fileListDiv.innerHTML = ''; // Limpia la lista anterior
+
+    let output = '<ul>';
+    files.forEach(file => {
+      const isFolder = file.mimeType === 'application/vnd.google-apps.folder';
+      output += `
+        <li style="margin: 5px;">
+          ${isFolder ? '📁' : '📄'} 
+          <strong>${file.name}</strong> 
+          ${isFolder ? '<button onclick="openFolder(\'' + file.id + '\')">Abrir</button>' : ''}
+          ${!isFolder ? '<button onclick="downloadFile(\'' + file.id + '\', \'' + file.name + '\')">Descargar</button>' : ''}
+          <button onclick="deleteFile('${file.id}')">Eliminar</button>
+        </li>`;
+    });
+    output += '</ul>';
+
+    fileListDiv.innerHTML = output;
+  }
+</script>
+
+<!-- Formulario para subir archivos a una carpeta específica -->
+<h2>Subir archivo a carpeta específica</h2>
+<form id="upload-form">
+  <input type="file" name="file" id="file-input" required>
+  <input type="text" id="parent-folder-id" placeholder="ID de la carpeta destino" required>
+  <button type="submit">Subir Archivo</button>
+</form>
+
+<!-- Formulario para crear una nueva carpeta -->
+<h2>Crear nueva carpeta</h2>
+<form id="create-folder-form">
+  <input type="text" id="folderName" placeholder="Nombre de la carpeta" required>
+  <button type="submit">Crear Carpeta</button>
+</form>
+
+<script>
+  // Subir archivo a una carpeta específica
+  document.getElementById('upload-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const fileInput = document.getElementById('file-input').files[0];
+    const parentFolderId = document.getElementById('parent-folder-id').value;
+
+    const formData = new FormData();
+    formData.append('file', fileInput);
+    formData.append('parentFolderId', parentFolderId);
+
+    const response = await fetch('/upload', {
+      method: 'POST',
+      body: formData
+    });
+
+    const result = await response.text();
+    alert(result);
+    document.getElementById('list-files-btn').click(); // Recarga la lista
+  });
+
+  // Crear nueva carpeta
+  document.getElementById('create-folder-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const folderName = document.getElementById('folderName').value;
+
+    const response = await fetch('/create-folder', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ folderName })
+    });
+
+    const result = await response.text();
+    alert(result);
+    document.getElementById('list-files-btn').click(); // Recarga la lista
+  });
+</script>
+
+</body>
+</html>
